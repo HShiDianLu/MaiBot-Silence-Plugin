@@ -9,7 +9,7 @@ from src.common.logger import get_logger
 logger = get_logger("Silence")
 
 class SilenceCore:
-    """沉默功能的核心实现 - 简化版"""
+    """沉默功能的核心实现"""
     
     _config_file: str = ""
     

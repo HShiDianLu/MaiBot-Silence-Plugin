@@ -172,7 +172,7 @@ class SilenceAction(BaseAction):
     parallel_action = False
     action_description = "根据当前聊天情况决定是否沉默不语"
     action_parameters = {
-        "case": "让你决定执行这个动作的情况，必填，只能填一个参数。如果你觉得自己应该收敛一点，适当保持沉默，填'low'；如果你感觉聊天气氛不对劲，自己说错了话，或者参与聊天的人明显对你说话有意见甚至生气，填'medium'；如果你是被别人明确且礼貌地要求了保持沉默一段时间，填'serious'",
+        "case": "让你决定执行这个动作的情况，必填，只能填一个参数。如果你觉得自己应该收敛一点，适当保持沉默，填'low'；如果你感觉聊天气氛不对劲，自己说错了话，或者参与聊天的人明显对你说话有意见甚至生气，隐约表达了需要你安静的意愿，填'medium'；如果你是被别人直接明确且礼貌地要求了保持沉默一段时间，填'serious'",
         "time": "沉默的时间长度，选填，必须填入以秒为单位的整数数字。如果是被人明确要求了保持沉默多久的话，把对方要求的时间长度换算成秒数填入即可；如果没有人对你明确要求沉默多久,请保持该参数为None"
     }
     action_require = [
@@ -220,6 +220,13 @@ class SilenceAction(BaseAction):
         
         # 添加到沉默列表（Silence_Core会自动处理组件禁用）
         if SilenceCore.add_silence(stream_id, duration, disabled_actions, disabled_commands):
+            # 记录动作信息
+            await self.store_action_info(
+                action_build_into_prompt=True,
+                action_prompt_display=f"已成功在聊天流{stream_id}进入沉默状态",
+                action_done=True
+                )
+
             return True, f"已对聊天流 {stream_id} 执行沉默操作"
         else:
             return False, f"聊天流 {stream_id} 已经在沉默列表里"
@@ -270,9 +277,21 @@ class SilenceStopAction(BaseAction):
                 if processed_text and mention_pattern.search(processed_text):
                     # 移除沉默（这会自动处理组件恢复）
                     SilenceCore.remove_silence(stream_id)
+                    # 记录动作信息
+                    await self.store_action_info(
+                        action_build_into_prompt=True,
+                        action_prompt_display=f"检测到艾特打断，已成功在聊天流{stream_id}解除沉默状态",
+                        action_done=True
+                        )
                     return True, f"检测到艾特自身的消息，解除聊天流 {stream_id} 的沉默状态"
                 
             if not SilenceCore.is_silenced(stream_id):
+                # 记录动作信息
+                await self.store_action_info(
+                    action_build_into_prompt=True,
+                    action_prompt_display=f"检测到时间已到，已成功在聊天流{stream_id}解除沉默状态",
+                    action_done=True
+                    )
                 return True, f"检测到沉默状态已过期，解除聊天流 {stream_id} 的沉默状态"
 
             # 每60秒输出一次等待状态
