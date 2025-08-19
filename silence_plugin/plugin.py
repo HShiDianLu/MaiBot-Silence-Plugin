@@ -116,7 +116,7 @@ class SilencePlugin(BasePlugin):
     # 配置Schema定义
     config_schema = {
         "plugin": {
-            "config_version": ConfigField(type=str, default="0.9.6", description="插件配置文件版本号"),
+            "config_version": ConfigField(type=str, default="0.9.9", description="插件配置文件版本号"),
             "enabled": ConfigField(type=bool, default=True, description="是否启用插件"),
         },
         "components": {
@@ -361,3 +361,4 @@ class SilenceCommand(BaseCommand):
             logger.warning(f"未配置管理员用户列表")
             return False
         return user_id in admin_users
+
