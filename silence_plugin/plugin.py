@@ -116,7 +116,7 @@ class SilencePlugin(BasePlugin):
     # 配置Schema定义
     config_schema = {
         "plugin": {
-            "config_version": ConfigField(type=str, default="0.9.9", description="插件配置文件版本号"),
+            "config_version": ConfigField(type=str, default="0.9.6", description="插件配置文件版本号"),
             "enabled": ConfigField(type=bool, default=True, description="是否启用插件"),
         },
         "components": {
@@ -220,7 +220,8 @@ class SilenceAction(BaseAction):
         disabled_actions, disabled_commands = _get_components_to_disable()
         
         # 添加到沉默列表（Silence_Core会自动处理组件禁用）
-        if SilenceCore.add_silence(False, self.message.chat_stream, stream_id, duration, disabled_actions, disabled_commands):
+        silenceOn = await SilenceCore.add_silence(False, self.message.chat_stream, stream_id, duration, disabled_actions, disabled_commands)
+        if silenceOn:
             # 记录动作信息
             await self.store_action_info(
                 action_build_into_prompt=True,
@@ -277,7 +278,7 @@ class SilenceStopAction(BaseAction):
                 processed_text = msg.get("processed_plain_text", "")
                 if processed_text and mention_pattern.search(processed_text):
                     # 移除沉默（这会自动处理组件恢复）
-                    SilenceCore.remove_silence(False, self.message.chat_stream, stream_id)
+                    await SilenceCore.remove_silence(False, self.message.chat_stream, stream_id)
                     # 记录动作信息
                     await self.store_action_info(
                         action_build_into_prompt=True,
@@ -313,10 +314,11 @@ class SilenceCommand(BaseCommand):
         sender = self.message.message_info.user_info
 
         if not self._check_person_permission(sender.user_id):
-            success, reply_set = await generator_api.rewrite_reply(
+            success, reply_set, prompt = await generator_api.rewrite_reply(
                 chat_stream=self.chat_stream,
-                reply_data={"original_text": "你谁啊就随便禁言我？",
-                         "reason": "用户试图禁言你，但没有权限没有成功，一句话"}
+                raw_reply="你谁啊就随便禁言我？",
+                reason="用户试图禁言你，但没有权限没有成功，表示好奇，一句话，必须回复内容",
+                return_prompt=True
             )
             if success and reply_set:
                 for reply_type, reply_content in reply_set:
@@ -341,14 +343,16 @@ class SilenceCommand(BaseCommand):
             disabled_actions, disabled_commands = _get_components_to_disable()
             
             duration_val = float(duration) if duration else None
-            if SilenceCore.add_silence(True, self.message.chat_stream, stream_id, duration_val, disabled_actions, disabled_commands):
+            silenceOn = await SilenceCore.add_silence(True, self.message.chat_stream, stream_id, duration_val, disabled_actions, disabled_commands)
+            if silenceOn:
                 return True, f"已添加聊天流 {stream_id} 到沉默列表", True
             else:
                 return True, f"聊天流 {stream_id} 添加到沉默列表失败", True
         
         elif action == "false":
             # 检查是否可以移除沉默（这会自动处理组件恢复）
-            if SilenceCore.remove_silence(True, self.message.chat_stream, stream_id):
+            silenceOff = await SilenceCore.remove_silence(True, self.message.chat_stream, stream_id)
+            if silenceOff:
                 return True, f"已从沉默列表移除聊天流 {stream_id}", True
             else:
                 return True, f"从沉默列表移除聊天流 {stream_id} 失败", True
@@ -361,4 +365,3 @@ class SilenceCommand(BaseCommand):
             logger.warning(f"未配置管理员用户列表")
             return False
         return user_id in admin_users
-
